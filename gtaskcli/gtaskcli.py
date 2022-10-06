@@ -1,5 +1,14 @@
 #!/usr/bin/env python
 
+
+__program__ = 'gtaskcli'
+__version__ = 'v0.1'
+__author__ = 'Neal Fultz'
+
+__API_CLIENT_ID__ = '114962348880-l5k29r3802g1ckni464464f5rkd68rat.apps.googleusercontent.com'
+__API_CLIENT_SECRET__ = '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'
+
+
 """t is for people that want do things, not organize their tasks."""
 
 from __future__ import with_statement, print_function
@@ -24,14 +33,6 @@ class UnknownPrefix(Exception):
     def __init__(self, prefix):
         super(UnknownPrefix, self).__init__()
         self.prefix = prefix
-
-class BadFile(Exception):
-    """Raised when something else goes wrong trying to work with the task file."""
-    def __init__(self, path, problem):
-        super(BadFile, self).__init__()
-        self.path = path
-        self.problem = problem
-
 
 def _hash(text):
     """Return a hash of the given text for use as an id.
@@ -121,6 +122,34 @@ def _prefixes(ids):
         del ps['']
     return ps
 
+def build_service():
+    import httplib2
+
+    from apiclient.discovery import build
+    from apiclient.errors import HttpError
+
+    from oauth2client import client
+    from oauth2client.file import Storage
+    from oauth2client import tools
+
+    client_secrets = "/home/nfultz/downloads/client_secret_114962348880-l5k29r3802g1ckni464464f5rkd68rat.apps.googleusercontent.com.json"
+
+    scope= "https://www.googleapis.com/auth/tasks"
+
+    flow = client.flow_from_clientsecrets(
+        client_secrets, scope=scope, message=client_secrets
+    )
+
+    storage = Storage(os.path.expanduser('~/.gtcli_oauth'))
+
+    credentials = storage.get()
+    if credentials is None or credentials.invalid:
+        credentials = tools.run_flow(flow, storage)
+
+    auth_http = credentials.authorize(httplib2.Http())
+
+    task_service = build(serviceName='tasks', version='v1', http=auth_http)
+    return task_service
 
 class TaskDict(object):
     """A set of tasks, both finished and unfinished, for a given list.
@@ -129,27 +158,23 @@ class TaskDict(object):
     can be written back out to disk with the write() function.
 
     """
-    def __init__(self, taskdir='.', name='tasks'):
+    def __init__(self, taskdir='.'):
         """Initialize by reading the task files, if they exist."""
-        self.tasks = {}
-        self.done = {}
-        self.name = name
-        self.taskdir = taskdir
-        filemap = (('tasks', self.name), ('done', '.%s.done' % self.name))
-        for kind, filename in filemap:
-            path = os.path.join(os.path.expanduser(self.taskdir), filename)
-            if os.path.isdir(path):
-                raise InvalidTaskfile
-            if os.path.exists(path):
-                try:
-                    with open(path, 'r') as tfile:
-                        tls = [tl.strip() for tl in tfile if tl]
-                        tasks = map(_task_from_taskline, tls)
-                        for task in tasks:
-                            if task is not None:
-                                getattr(self, kind)[task['id']] = task
-                except IOError as e:
-                    raise BadFile(path, e.strerror)
+        self.service = build_service()
+        self.taskdir = os.path.expanduser(taskdir).replace(os.path.expanduser("~"), "~")
+        self.id = None
+
+        tasklists = self.service.tasklists().list().execute()
+        print(self.taskdir)
+        print(tasklists)
+
+        for tl in tasklists["items"]:
+            if tl["title"] == taskdir:
+                self.id = tl["id"]
+                self.tasks = self.service.tasks().list(tasklist=self.id).execute()
+
+        print(self.tasks)
+
 
     def __getitem__(self, prefix):
         """Return the unfinished task with the given prefix.
@@ -277,8 +302,6 @@ def _build_parser():
     parser.add_option_group(actions)
 
     config = OptionGroup(parser, "Configuration Options")
-    config.add_option("-l", "--list", dest="name", default="tasks",
-                      help="work on LIST", metavar="LIST")
     config.add_option("-t", "--task-dir", dest="taskdir", default="",
                       help="work on the lists in DIR", metavar="DIR")
     config.add_option("-d", "--delete-if-empty",
@@ -305,38 +328,39 @@ def _build_parser():
 def _main():
     """Run the command-line interface."""
     (options, args) = _build_parser().parse_args()
+    print(options)
 
-    td = TaskDict(taskdir=options.taskdir, name=options.name)
-    text = ' '.join(args).strip()
-
-    if '\n' in text:
-        _die('task text cannot contain newlines')
-
-    try:
-        if options.finish:
-            td.finish_task(options.finish)
-            td.write(options.delete)
-        elif options.remove:
-            td.remove_task(options.remove)
-            td.write(options.delete)
-        elif options.edit:
-            td.edit_task(options.edit, text)
-            td.write(options.delete)
-        elif text:
-            td.add_task(text, verbose=options.verbose, quiet=options.quiet)
-            td.write(options.delete)
-        else:
-            kind = 'tasks' if not options.done else 'done'
-            td.print_list(kind=kind, verbose=options.verbose, quiet=options.quiet,
-                          grep=options.grep)
-    except AmbiguousPrefix:
-        e = sys.exc_info()[1]
-        _die('the ID "%s" matches more than one task' % e.prefix)
-    except UnknownPrefix:
-        e = sys.exc_info()[1]
-        _die('the ID "%s" does not match any task' % e.prefix)
-    except BadFile as e:
-        _die('%s - %s' % (e.problem, e.path))
+    td = TaskDict(taskdir=options.taskdir)
+#    text = ' '.join(args).strip()
+#
+#    if '\n' in text:
+#        _die('task text cannot contain newlines')
+#
+#    try:
+#        if options.finish:
+#            td.finish_task(options.finish)
+#            td.write(options.delete)
+#        elif options.remove:
+#            td.remove_task(options.remove)
+#            td.write(options.delete)
+#        elif options.edit:
+#            td.edit_task(options.edit, text)
+#            td.write(options.delete)
+#        elif text:
+#            td.add_task(text, verbose=options.verbose, quiet=options.quiet)
+#            td.write(options.delete)
+#        else:
+#            kind = 'tasks' if not options.done else 'done'
+#            td.print_list(kind=kind, verbose=options.verbose, quiet=options.quiet,
+#                          grep=options.grep)
+#    except AmbiguousPrefix:
+#        e = sys.exc_info()[1]
+#        _die('the ID "%s" matches more than one task' % e.prefix)
+#    except UnknownPrefix:
+#        e = sys.exc_info()[1]
+#        _die('the ID "%s" does not match any task' % e.prefix)
+#    except BadFile as e:
+#        _die('%s - %s' % (e.problem, e.path))
 
 
 if __name__ == '__main__':
