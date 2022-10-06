@@ -4,15 +4,15 @@ except:
     from distutils.core import setup
 
 setup(
-    name='t',
+    name='gtaskcli',
     version='1.2.0',
-    author='Steve Losh',
-    author_email='steve@stevelosh.com',
-    url='https://hg.stevelosh.com/t',
-    py_modules=['t'],
+    author='Neal Fultz',
+    author_email='nfultz@gmail.com',
+    url='https://github.com/nfultz/gtaskcli',
+    py_modules=['gtaskcli'],
     entry_points={
         'console_scripts': [
-            't = t:_main',
+            'gt = gtaskcli:_main',
         ],
     },
 )
