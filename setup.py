@@ -10,9 +10,15 @@ setup(
     author_email='nfultz@gmail.com',
     url='https://github.com/nfultz/gtaskcli',
     py_modules=['gtaskcli'],
+    python_requires='>=3',
+    install_requires=[
+          'google-api-python-client>=1.4',
+          'httplib2',
+          'oauth2client',
+      ],
     entry_points={
         'console_scripts': [
-            'gt = gtaskcli:_main',
+            'gtaskcli = gtaskcli:_main',
         ],
     },
 )

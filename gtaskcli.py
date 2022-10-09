@@ -1,18 +1,14 @@
 #!/usr/bin/env python
-from __future__ import with_statement, print_function
-
-__program__ = 'gtaskcli'
-__version__ = 'v0.1'
-__author__ = 'Neal Fultz'
+import os, re, sys, hashlib
 
 __API_CLIENT_ID__ = '114962348880-l5k29r3802g1ckni464464f5rkd68rat.apps.googleusercontent.com'
 __API_CLIENT_SECRET__ = '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'
 
 
-"""t is for people that want do things, not organize their tasks."""
+"""gtaskcli is for people that want do things, not organize their tasks.
+With google tasks."""
 
 
-import os, re, sys, hashlib
 from operator import itemgetter
 from optparse import OptionParser, OptionGroup
 
@@ -34,7 +30,7 @@ class UnknownPrefix(Exception):
         self.prefix = prefix
 
 def _prefixes(tasks):
-    """Return a mapping of ids to prefixes in O(n) time.
+    """Annotates a list of tasks with a prefix in O(n) time.
 
     Each prefix will be the shortest possible substring of the ID that
     can uniquely identify it among the given group of IDs.
@@ -69,6 +65,7 @@ def _prefixes(tasks):
             ps[prefix] = id
     ps = dict(zip(ps.values(), ps.keys()))
 
+    # save back on to task objects
     for task in tasks:
         task["prefix"] = ps[task["id"].lower()]
 
@@ -210,7 +207,7 @@ class TaskDict(object):
         request.execute()
 
 
-    def print_list(self, kind='tasks', verbose=False, quiet=False, grep=''):
+    def print_list(self, kind='needsAction', verbose=False, quiet=False, grep=''):
         """Print out a nicely formatted list of unfinished tasks."""
         if not self.id: return
         tasks = self.tasks["items"]
