@@ -104,7 +104,7 @@ class TaskDict(object):
     The list's files are read from gtasks when the TaskDict is initialized.
 
     """
-    def __init__(self, taskdir='.'):
+    def __init__(self, taskdir=None):
         """Initialize by reading the task files, if they exist."""
         self.service = build_service()
 
@@ -119,10 +119,17 @@ class TaskDict(object):
 
         tasklists = self.service.tasklists().list().execute()
 
-        for tl in tasklists["items"]:
-            if tl["title"] == taskdir:
-                self.id = tl["id"]
-                self.tasks = self.service.tasks().list(tasklist=self.id).execute()
+        if not taskdir:
+            tl = next(iter(tasklists["items"]))
+        else:
+            for tl in tasklists["items"]:
+                if tl["title"] == taskdir:
+                    break
+            else:
+                pass
+
+        self.id = tl["id"]
+        self.tasks = self.service.tasks().list(tasklist=self.id).execute()
 
 
 
@@ -253,7 +260,7 @@ def _build_parser():
     parser.add_option_group(actions)
 
     config = OptionGroup(parser, "Configuration Options")
-    config.add_option("-t", "--task-list", dest="taskdir", default=".",
+    config.add_option("-t", "--task-list", dest="taskdir", default="",
                       help="work on the lists named LIST", metavar="LIST")
     config.add_option("-d", "--delete-if-empty",
                       action="store_true", dest="delete", default=False,
